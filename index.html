@@ -254,7 +254,14 @@
             document.querySelectorAll("#listaAlumnos tr").forEach(row => {
                 const nombre = row.cells[0].textContent;
                 const observacion = row.cells[1].querySelector("select").value;
-                alumnos.push({ nombre, observacion });
+                const asistencias = Array.from(row.querySelectorAll(`[data-column="Asistencia"]`)).map(cell => {
+                    const fecha = cell.querySelector("input[type='date']")?.value || "";
+                    const estado = cell.querySelector("select")?.value || "";
+                    return { fecha, estado };
+                });
+                const notas = Array.from(row.querySelectorAll(`[data-column="Nota"] input[type='number']`)).map(input => input.value || "");
+                const promedio = row.querySelector(".promedio").textContent;
+                alumnos.push({ nombre, observacion, asistencias, notas, promedio });
             });
             localStorage.setItem(`curso_${cursoActual}`, JSON.stringify(alumnos));
             alert("Datos guardados para el curso " + cursoActual);
@@ -264,7 +271,27 @@
             const datosGuardados = localStorage.getItem(`curso_${cursoActual}`);
             if (datosGuardados) {
                 const alumnos = JSON.parse(datosGuardados);
-                alumnos.forEach(alumno => agregarFila(alumno.nombre, alumno.observacion));
+                alumnos.forEach(alumno => {
+                    agregarFila(alumno.nombre, alumno.observacion);
+                    // Rellenar asistencias y notas
+                    const filas = document.querySelectorAll("#listaAlumnos tr");
+                    const ultimaFila = filas[filas.length - 1];
+
+                    alumno.asistencias.forEach((asistencia, index) => {
+                        const asistenciaCell = ultimaFila.querySelectorAll(`[data-column="Asistencia"]`)[index];
+                        if (asistenciaCell) {
+                            asistenciaCell.querySelector("input[type='date']").value = asistencia.fecha;
+                            asistenciaCell.querySelector("select").value = asistencia.estado;
+                        }
+                    });
+
+                    alumno.notas.forEach((nota, index) => {
+                        const notaCell = ultimaFila.querySelectorAll(`[data-column="Nota"] input[type='number']`)[index];
+                        if (notaCell) {
+                            notaCell.value = nota;
+                        }
+                    });
+                });
             }
         }
 
@@ -278,16 +305,20 @@
         // Exportar a Excel
         function exportarExcel() {
             let wb = XLSX.utils.book_new();
-            let ws_data = [["Nombre", "Observación", "Asistencia", "Nota", "Promedio"]];
+            let ws_data = [["Nombre", "Observación", "Asistencias", "Notas", "Promedio"]];
 
             document.querySelectorAll("#listaAlumnos tr").forEach(row => {
                 const nombre = row.cells[0].textContent;
                 const observacion = row.cells[1].querySelector("select").value;
-                const asistencia = row.cells.length > 2 ? row.cells[2].querySelector("input[type='date']")?.value || "" : "";
-                const nota = row.cells.length > 3 ? row.cells[3].querySelector("input[type='number']")?.value || "" : "";
-                const promedio = row.cells.length > 4 ? row.cells[4].textContent : "";
+                const asistencias = Array.from(row.querySelectorAll(`[data-column="Asistencia"]`)).map(cell => {
+                    const fecha = cell.querySelector("input[type='date']")?.value || "";
+                    const estado = cell.querySelector("select")?.value || "";
+                    return `${fecha} (${estado})`;
+                }).join(", ");
+                const notas = Array.from(row.querySelectorAll(`[data-column="Nota"] input[type='number']`)).map(input => input.value || "").join(", ");
+                const promedio = row.querySelector(".promedio").textContent;
 
-                ws_data.push([nombre, observacion, asistencia, nota, promedio]);
+                ws_data.push([nombre, observacion, asistencias, notas, promedio]);
             });
 
             let ws = XLSX.utils.aoa_to_sheet(ws_data);
